@@ -1754,7 +1754,7 @@ class BCC(MDApp):
         home = Path.home()
         emplacements = [
             {"text": "Dossier par défaut (exports_bcc)", "path": "exports_bcc"},
-            {"text": "Bureau", "path": str(home / "Desktop" / "BCC_Exports")},
+            {"text": "Bureau", "path": str(home / "Bureau" / "BCC_Exports")},
             {"text": "Documents", "path": str(home / "Documents" / "BCC_Exports")},
             {"text": "Téléchargements", "path": str(home / "Downloads" / "BCC_Exports")},
             {"text": "Personnalisé...", "path": "custom"}
