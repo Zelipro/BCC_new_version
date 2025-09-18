@@ -5,7 +5,7 @@ package.domain = org.example
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,db
 version = 2.0
-requirements = python3,kivy,kivymd,pillow,sqlite3,requests,hashlib,pathlib,datetime,pandas,openpyxl,python-docx,reportlab
+requirements = python3,kivy,kivymd,pillow,requests,pandas,openpyxl,python-docx,reportlab
 icon.filename = %(source.dir)s/CEET.png
 
 [buildozer]
@@ -18,5 +18,9 @@ ndk = 25b
 sdk = 34
 android.permissions = INTERNET
 android.archs = arm64-v8a, armeabi-v7a
-orientation = all
-android.orientation = all
+# Supprimer cette ligne dupliquée :
+# orientation = all
+android.orientation = portrait
+# Ajouter ces lignes pour éviter les problèmes de permissions :
+android.accept_sdk_license = True
+android.skip_update = False
