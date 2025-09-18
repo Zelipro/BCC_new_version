@@ -1,0 +1,187 @@
+<Page1>:
+    md_bg_color: [1,1,0,1]
+    name:"Page1"
+    
+
+    MDLabel:
+        id:Page1_1
+        text: "LOGICIEL DE CONTRÔLE DU BCC"
+        font_style:"H4"
+        markup:True
+        halign:"center"
+        theme_text_color:"Primary"
+        pos_hint:{"center_y":.8}
+    
+    Image:
+        source: "CEET.png"
+        size_hint:None,None
+        size:(120,120)  # Taille encore plus réduite
+        pos_hint:{"center_x":.5,"center_y":.9}
+    
+    
+    MDScrollView:
+        do_scroll_x:False
+        do_scroll_y:True
+        pos_hint:{"center_x":.5,"center_y":.45}
+        size_hint: 1, 0.5
+        
+        MDBoxLayout:
+            orientation: 'vertical'
+            adaptive_height:True
+            spacing: 15
+            padding: [30, 10, 30, 10]
+
+            # Carte Sécurisé - Couleur verte
+            MDCard:
+                orientation: "vertical"
+                md_bg_color: [0.85, 0.95, 0.88, 1]  # Vert pastel
+                radius: [20]
+                elevation: 3
+                padding: 20
+                size_hint_y: None
+                height: 140
+                ripple_behavior: True
+                
+                MDBoxLayout:
+                    orientation: "vertical"
+                    spacing: 8
+                    adaptive_height: True
+                    
+                    MDIcon:
+                        icon: "shield-check"
+                        theme_icon_color: "Custom"
+                        icon_color: [0.1, 0.6, 0.2, 1]  # Vert foncé
+                        font_size: "28sp"
+                        size_hint_y: None
+                        height: 35
+                        halign: "center"
+                    
+                    MDLabel:
+                        text: "[b]Sécurisé[/b]"
+                        font_style: "H6"
+                        markup: True
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: [0.1, 0.5, 0.15, 1]
+                        size_hint_y: None
+                        height: 25
+                    
+                    MDLabel:
+                        text: "Contrôle sécurisé des opérations BCC avec traçabilité complète"
+                        font_style: "Caption"
+                        halign: "center"
+                        text_size: self.width, None
+                        theme_text_color: "Custom"
+                        text_color: [0.2, 0.4, 0.25, 1]
+                        size_hint_y: None
+                        height: 50
+
+            # Carte Rapide - Couleur bleue
+            MDCard:
+                orientation: "vertical"
+                md_bg_color: [0.85, 0.92, 0.98, 1]  # Bleu pastel
+                radius: [20]
+                elevation: 3
+                padding: 20
+                size_hint_y: None
+                height: 140
+                ripple_behavior: True
+                
+                MDBoxLayout:
+                    orientation: "vertical"
+                    spacing: 8
+                    adaptive_height: True
+                    
+                    MDIcon:
+                        icon: "lightning-bolt"
+                        theme_icon_color: "Custom"
+                        icon_color: [0.1, 0.4, 0.8, 1]  # Bleu foncé
+                        font_size: "28sp"
+                        size_hint_y: None
+                        height: 35
+                        halign: "center"
+                    
+                    MDLabel:
+                        text: "[b]Rapide[/b]"
+                        font_style: "H6"
+                        markup: True
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: [0.1, 0.3, 0.7, 1]
+                        size_hint_y: None
+                        height: 25
+                    
+                    MDLabel:
+                        text: "Interface intuitive pour une saisie et consultation rapide des données"
+                        font_style: "Caption"
+                        halign: "center"
+                        text_size: self.width, None
+                        theme_text_color: "Custom"
+                        text_color: [0.2, 0.3, 0.6, 1]
+                        size_hint_y: None
+                        height: 50
+
+            # Carte Professionnel - Couleur violette
+            MDCard:
+                orientation: "vertical"
+                md_bg_color: [0.92, 0.88, 0.96, 1]  # Violet pastel
+                radius: [20]
+                elevation: 3
+                padding: 20
+                size_hint_y: None
+                height: 140
+                ripple_behavior: True
+                
+                MDBoxLayout:
+                    orientation: "vertical"
+                    spacing: 8
+                    adaptive_height: True
+                    
+                    MDIcon:
+                        icon: "office-building"
+                        theme_icon_color: "Custom"
+                        icon_color: [0.4, 0.2, 0.7, 1]  # Violet foncé
+                        font_size: "28sp"
+                        size_hint_y: None
+                        height: 35
+                        halign: "center"
+                    
+                    MDLabel:
+                        text: "[b]Professionnel[/b]"
+                        font_style: "H6"
+                        markup: True
+                        halign: "center"
+                        theme_text_color: "Custom"
+                        text_color: [0.3, 0.15, 0.6, 1]
+                        size_hint_y: None
+                        height: 25
+                    
+                    MDLabel:
+                        text: "Conforme aux standards CEET-DRM pour un usage professionnel optimal"
+                        font_style: "Caption"
+                        halign: "center"
+                        text_size: self.width, None
+                        theme_text_color: "Custom"
+                        text_color: [0.25, 0.2, 0.5, 1]
+                        size_hint_y: None
+                        height: 50
+    
+    MDLabel:
+        id:Page1_2
+        text: "CEET-DRM-BCC"
+        font_style:"Caption"
+        markup:True
+        halign:"center"
+        pos_hint:{"center_y":.15}
+        theme_text_color: "Custom"
+        text_color: [0.3, 0.3, 0.3, 1]
+    
+    MDRaisedButton:
+        id:Page1_3
+        text:"Aller"
+        on_release:app.Go(self)
+        size_hint:.35,.06
+        font_size:28
+        pos_hint:{"center_x":.5,"center_y":.08}
+        md_bg_color: [0.15, 0.55, 0.9, 1]  # Bleu moderne
+        elevation: 4
