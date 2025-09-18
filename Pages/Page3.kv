@@ -1,0 +1,224 @@
+<Page3>:
+    name:"Page3"
+    md_bg_color:[1,1,0,1]
+    
+    MDBoxLayout:
+        orientation:"vertical"
+        MDTopAppBar:
+            title:"BCC"
+        Widget:
+
+    Image:
+        source:"CEET.png"
+        size_hint:None,None
+        size:(1000,1000)
+        pos_hint:{"center_x":.1,"center_y":.95}
+    
+    Image:
+        source:"CEET.png"
+        size_hint:None,None
+        size:(1000,1000)
+        pos_hint:{"center_x":.9,"center_y":.95}
+    
+    MDCard:
+        radius:[10]
+        size_hint:None,None
+        size:(dp(50),dp(50))
+        pos_hint:{"center_x":.15,"center_y":.2}
+        md_bg_color:app.theme_cls.primary_color
+        #elevation:3
+
+        MDIconButton:
+            id:Page2_icon
+            icon:"plus"
+            pos_hint:{"center_x":.5}
+            on_release:app.Appui_Icon_page2(self)
+
+    MDLabel:
+        id:Page3_1
+        text:"[b]VEUILLEZ REMPLIR CETTE PAGE[/b]"
+        font_style:"H6"
+        markup:True
+        halign:"center"
+        pos_hint:{"center_y":.85}
+    
+    MDCard:
+        pos_hint:{"center_x":.5,"center_y":.6}
+        size_hint:.9,.4
+        #adaptive_height:True
+
+        MDScrollView:
+            do_scroll_x: False
+            do_scroll_y: True
+            bar_width: 0  # Masquer la barre sur mobile si souhaité
+            
+            MDBoxLayout:
+                orientation:"vertical"
+                spacing:"20dp"
+                padding:"15dp"
+                adaptive_height:True
+                size_hint_y: None
+                height: self.minimum_height
+
+                MDTextField:
+                    halign:"center"
+                    pos_hint:{"center_x":.5}
+                    id:Page3_2
+                    size_hint_x:.8
+                    mode:"fill"
+                    hint_text:"Date"
+                
+                MDTextField:
+                    halign:"center"
+                    pos_hint:{"center_x":.5}
+                    id:Page3_3
+                    size_hint_x:.8
+                    mode:"fill"
+                    hint_text:"Operateur"
+                
+                MDTextField:
+                    halign:"center"
+                    pos_hint:{"center_x":.5}
+                    id:Page3_4
+                    size_hint_x:.8
+                    mode:"fill"
+                    hint_text:"Ouverture ou fermerture ou DD"
+                
+                MDTextField:
+                    halign:"center"
+                    pos_hint:{"center_x":.5}
+                    id:Page3_5
+                    size_hint_x:.8
+                    mode:"fill"
+                    hint_text:"Operation"
+                
+                
+                MDTextField:
+                    halign:"center"
+                    pos_hint:{"center_x":.5}
+                    id:Page3_6
+                    size_hint_x:.8
+                    mode:"fill"
+                    hint_text:"Mension(succes ou Ic)"
+                    helper_text:"Si il n'y a pas on met rien"
+                    helper_text_mode:"on_focus"
+
+                MDRaisedButton:
+                    id:Page3_7
+                    text:"[b]Valider[/b]"
+                    pos_hint:{"center_x":.5}
+                    size_hint_x:.4
+                    on_release:app.Valider_3(self)
+    
+    MDCard:
+        size_hint:.1,1
+        pos_hint:{"center_x":.0,"center_y":.5}
+        opacity:0
+
+        MDBoxLayout:
+            orientation: 'vertical'
+            adaptive_height:True
+            spacing:20
+            padding:20
+            pos_hint:{"center_x":.5,"center_y":.5}
+            
+            MDIconButton:
+                text:"Changer de language"
+                id:Page2_4
+                icon:"web"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Changer_language(self)
+            
+            MDIconButton:
+                text:"Help"
+                id:Page2_5
+                icon:"information"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Changer_language(self)
+            
+            MDIconButton:
+                text:"Changer de fonts(Nuit/Jour)"
+                id:Page2_6
+                icon:"brightness-6"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Changer_font1(self)
+            
+            MDIconButton:
+                text:"Color"
+                id:Page2_11
+                icon:"palette"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Changer_font2(self)
+
+
+            MDIconButton:
+                text:"Home"
+                id:Page2_7
+                icon:"home"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Next_But(self,1)
+            
+            MDIconButton:
+                text:"Choix"
+                id:Page2_9
+                icon:"format-list-bulleted"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Next_But(self,2)
+
+            MDIconButton:
+                text:"Saisir"
+                id:Page2_8
+                icon:"pen"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Next_But(self,3)
+            
+            MDIconButton:
+                text:"Histoire"
+                id:Page2_10
+                icon:"history"
+                pos_hint:{"center_x":.85}
+                #on_release:app.Next_But(self,4)
+    
+    MDCard:
+        size_hint: None, None
+        size: dp(300), dp(60)
+        pos_hint: {"center_x": .5, "center_y": .08}
+        md_bg_color: app.theme_cls.primary_color
+        
+        AnchorLayout:
+            anchor_x: "center"
+            anchor_y: "center"
+            
+            MDBoxLayout:
+                orientation: "horizontal"
+                adaptive_width: True
+                adaptive_height: True
+                spacing: dp(15)
+                
+                MDIconButton:
+                    id: Page2_7
+                    icon: "home"
+                    size_hint: None, None
+                    size: dp(40), dp(40)
+                    on_release: app.Next_But(self, 1)
+                    
+                MDIconButton:
+                    id: Page2_9
+                    icon: "format-list-bulleted"
+                    size_hint: None, None
+                    size: dp(40), dp(40)
+                    on_release: app.Next_But(self, 2)
+                    
+                MDIconButton:
+                    id: Page2_8
+                    icon: "pen"
+                    size_hint: None, None
+                    size: dp(40), dp(40)
+                    on_release: app.Next_But(self, 3)
+                    
+                MDIconButton:
+                    id: Page2_10
+                    icon: "history"
+                    size_hint: None, None
+                    size: dp(40), dp(40)
+                    on_release: app.Next_But(self, 4)
