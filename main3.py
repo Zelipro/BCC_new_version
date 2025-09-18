@@ -1541,14 +1541,14 @@ class BCC(MDApp):
             text=f"Exporter le {self.DATE}",
             size_hint_y=None,
             height="40dp",
-            on_release=lambda x: self.confirmer_export(formats, False)
+            on_release=lambda x: self.choisir_emplacement_export(formats, False)  # Passe par choix d'emplacement(formats, False)
         )
         
         btn_tout = MDRaisedButton(
             text="Exporter tout l'historique",
             size_hint_y=None,
             height="40dp",
-            on_release=lambda x: self.confirmer_export(formats, True)
+            on_release=lambda x: self.choisir_emplacement_export(formats, True)
         )
         
         content_layout.add_widget(btn_date_actuelle)
@@ -1659,6 +1659,406 @@ class BCC(MDApp):
                 Pge.Page4_layout.add_widget(btn_export)
             
             self.btn_export_ajouté = True
+    # Ajoutez ces méthodes à votre classe BCC() après les fonctions d'export existantes
+
+    def choisir_emplacement_export(self, formats, export_complet=False):
+        """
+        Permettre à l'utilisateur de choisir l'emplacement d'export
+        """
+        from kivy.utils import platform
+        
+        if platform == 'android':
+            # Sur Android, proposer des emplacements prédéfinis
+            self.proposer_emplacements_android(formats, export_complet)
+        else:
+            # Sur desktop, utiliser un file chooser
+            self.proposer_emplacements_desktop(formats, export_complet)
+
+    def proposer_emplacements_android(self, formats, export_complet):
+        """
+        Proposer des emplacements d'export pour Android
+        """
+        # Emplacements typiques sur Android
+        emplacements = [
+            {"text": "Dossier par défaut (exports_bcc)", "path": "exports_bcc", "icon": "folder"},
+            {"text": "Documents", "path": "/storage/emulated/0/Documents/BCC_Exports", "icon": "file-document"},
+            {"text": "Téléchargements", "path": "/storage/emulated/0/Download/BCC_Exports", "icon": "download"},
+            {"text": "Stockage externe", "path": "/storage/emulated/0/BCC_Exports", "icon": "sd"},
+            {"text": "Personnalisé...", "path": "custom", "icon": "folder-edit"}
+        ]
+        
+        menu_items = []
+        for emplacement in emplacements:
+            menu_items.append({
+                "text": emplacement["text"],
+                "icon": emplacement["icon"],
+                "on_release": lambda path=emplacement["path"]: self.confirmer_emplacement(path, formats, export_complet)
+            })
+        
+        self.menu_emplacement = MDDropdownMenu(
+            caller=None,  # Sera défini lors de l'appel
+            items=menu_items,
+            width_mult=5,
+        )
+        
+        # Créer un dialog pour afficher le menu
+        content_layout = MDBoxLayout(
+            orientation="vertical",
+            spacing="10dp",
+            size_hint_y=None,
+            height="300dp"
+        )
+        
+        title_label = MDLabel(
+            text="Choisissez l'emplacement d'export:",
+            font_style="H6",
+            size_hint_y=None,
+            height="40dp"
+        )
+        content_layout.add_widget(title_label)
+        
+        # Ajouter les boutons d'emplacement
+        for emplacement in emplacements:
+            btn = MDRaisedButton(
+                text=emplacement["text"],
+                size_hint_y=None,
+                height="40dp",
+                on_release=lambda x, path=emplacement["path"]: self.confirmer_emplacement(path, formats, export_complet)
+            )
+            content_layout.add_widget(btn)
+        
+        self.dialog_emplacement = MDDialog(
+            title="Emplacement d'export",
+            type="custom",
+            content_cls=content_layout,
+            buttons=[
+                MDFlatButton(
+                    text="ANNULER",
+                    theme_text_color="Custom",
+                    text_color=(.5, .5, .5, 1),
+                    on_release=self.annuler_emplacement
+                ),
+            ],
+        )
+        
+        self.dialog_emplacement.open()
+
+    def proposer_emplacements_desktop(self, formats, export_complet):
+        """
+        Proposer des emplacements d'export pour desktop
+        """
+        import os
+        from pathlib import Path
+        
+        # Emplacements typiques sur desktop
+        home = Path.home()
+        emplacements = [
+            {"text": "Dossier par défaut (exports_bcc)", "path": "exports_bcc"},
+            {"text": "Bureau", "path": str(home / "Desktop" / "BCC_Exports")},
+            {"text": "Documents", "path": str(home / "Documents" / "BCC_Exports")},
+            {"text": "Téléchargements", "path": str(home / "Downloads" / "BCC_Exports")},
+            {"text": "Personnalisé...", "path": "custom"}
+        ]
+        
+        content_layout = MDBoxLayout(
+            orientation="vertical",
+            spacing="10dp",
+            size_hint_y=None,
+            height="250dp"
+        )
+        
+        title_label = MDLabel(
+            text="Choisissez l'emplacement d'export:",
+            font_style="H6",
+            size_hint_y=None,
+            height="40dp"
+        )
+        content_layout.add_widget(title_label)
+        
+        for emplacement in emplacements:
+            btn = MDRaisedButton(
+                text=emplacement["text"],
+                size_hint_y=None,
+                height="40dp",
+                on_release=lambda x, path=emplacement["path"]: self.confirmer_emplacement(path, formats, export_complet)
+            )
+            content_layout.add_widget(btn)
+        
+        self.dialog_emplacement = MDDialog(
+            title="Emplacement d'export",
+            type="custom",
+            content_cls=content_layout,
+            buttons=[
+                MDFlatButton(
+                    text="ANNULER",
+                    theme_text_color="Custom",
+                    text_color=(.5, .5, .5, 1),
+                    on_release=self.annuler_emplacement
+                ),
+            ],
+        )
+        
+        self.dialog_emplacement.open()
+
+    def saisir_emplacement_personnalise(self, formats, export_complet):
+        """
+        Permettre la saisie d'un emplacement personnalisé
+        """
+        from kivymd.uix.textfield import MDTextField
+        
+        content_layout = MDBoxLayout(
+            orientation="vertical",
+            spacing="15dp",
+            size_hint_y=None,
+            height="150dp"
+        )
+        
+        info_label = MDLabel(
+            text="Entrez le chemin complet du dossier:",
+            font_style="Subtitle1",
+            size_hint_y=None,
+            height="40dp"
+        )
+        
+        self.path_field = MDTextField(
+            hint_text="Ex: /storage/emulated/0/MonDossier ou C:/Users/Username/MonDossier",
+            text="/storage/emulated/0/BCC_Exports",  # Valeur par défaut
+            multiline=False,
+            size_hint_y=None,
+            height="50dp"
+        )
+        
+        exemple_label = MDLabel(
+            text="Le dossier sera créé s'il n'existe pas.",
+            font_style="Caption",
+            theme_text_color="Secondary",
+            size_hint_y=None,
+            height="30dp"
+        )
+        
+        content_layout.add_widget(info_label)
+        content_layout.add_widget(self.path_field)
+        content_layout.add_widget(exemple_label)
+        
+        self.dialog_path = MDDialog(
+            title="Emplacement personnalisé",
+            type="custom",
+            content_cls=content_layout,
+            buttons=[
+                MDFlatButton(
+                    text="ANNULER",
+                    theme_text_color="Custom",
+                    text_color=(.5, .5, .5, 1),
+                    on_release=self.annuler_path_personnalise
+                ),
+                MDFlatButton(
+                    text="CONFIRMER",
+                    theme_text_color="Custom",
+                    text_color=(.2, .6, 1, 1),
+                    on_release=lambda x: self.confirmer_path_personnalise(formats, export_complet)
+                ),
+            ],
+        )
+        
+        self.dialog_path.open()
+
+    def confirmer_emplacement(self, path, formats, export_complet):
+        """
+        Confirmer l'emplacement choisi et lancer l'export
+        """
+        self.dialog_emplacement.dismiss()
+        
+        if path == "custom":
+            # Ouvrir la saisie personnalisée
+            self.saisir_emplacement_personnalise(formats, export_complet)
+        else:
+            # Utiliser l'emplacement choisi
+            self.lancer_export_avec_emplacement(path, formats, export_complet)
+
+    def confirmer_path_personnalise(self, formats, export_complet):
+        """
+        Confirmer le chemin personnalisé
+        """
+        path = self.path_field.text.strip()
+        self.dialog_path.dismiss()
+        
+        if path:
+            self.lancer_export_avec_emplacement(path, formats, export_complet)
+        else:
+            toast("Veuillez entrer un chemin valide", background=[1,0,0,1])
+
+    def annuler_emplacement(self, instance):
+        """
+        Annuler le choix d'emplacement
+        """
+        self.dialog_emplacement.dismiss()
+
+    def annuler_path_personnalise(self, instance):
+        """
+        Annuler la saisie du chemin personnalisé
+        """
+        self.dialog_path.dismiss()
+
+    def lancer_export_avec_emplacement(self, output_dir, formats, export_complet):
+        """
+        Lancer l'export avec l'emplacement spécifié
+        """
+        try:
+            # Créer le dossier s'il n'existe pas
+            from pathlib import Path
+            Path(output_dir).mkdir(parents=True, exist_ok=True)
+            
+            if export_complet:
+                self.exporter_toutes_donnees_bcc_custom(formats, output_dir)
+            else:
+                self.exporter_donnees_bcc_custom(formats, output_dir)
+                
+        except Exception as e:
+            toast(f"Erreur création dossier: {str(e)}", background=[1,0,0,1])
+
+    def exporter_donnees_bcc_custom(self, formats=['pdf'], output_dir="exports_bcc"):
+        """
+        Version modifiée avec emplacement personnalisé
+        """
+        try:
+            # Récupérer les données pour la date actuelle
+            cur = self.con.cursor()
+            cur.execute("SELECT * FROM BCC WHERE Date = ?", (self.DATE,))
+            donnees = cur.fetchall()
+            
+            if donnees:
+                # Préparer les données (exclure l'ID de la base de données)
+                data_export = [list(self.redreser_les_donne(row[1:])) for row in donnees]
+                headers = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
+                
+                # Créer l'exporteur avec l'emplacement personnalisé
+                from Export import DataExporter
+                exporter = DataExporter(output_dir=output_dir)
+                
+                # Nettoyer le nom de fichier
+                date_clean = self.DATE.replace('/', '_').replace(' ', '_')
+                
+                files = exporter.export_data(
+                    data_export,
+                    f"rapport_bcc_{date_clean}",
+                    formats=formats,
+                    title=f"Rapport BCC - Contrôle des Opérations du {self.DATE}",
+                    headers=headers
+                )
+                
+                # Notification de succès
+                if files:
+                    message = f"Export réussi dans {output_dir}!\n{len(files)} fichier(s) créé(s)"
+                    toast(message, duration=4)
+                    print("Fichiers créés:", files)
+                    return files
+                else:
+                    toast("Erreur lors de l'export", background=[1,0,0,1])
+                    return {}
+                    
+            else:
+                toast(f"Aucune donnée à exporter pour le {self.DATE}")
+                return {}
+                
+        except Exception as e:
+            toast("Erreur lors de l'export", background=[1,0,0,1])
+            print(f"Erreur export: {e}")
+            return {}
+
+    def exporter_toutes_donnees_bcc_custom(self, formats=['pdf'], output_dir="exports_bcc"):
+        """
+        Version modifiée avec emplacement personnalisé pour export complet
+        """
+        try:
+            cur = self.con.cursor()
+            cur.execute("SELECT * FROM BCC ORDER BY Date, Heur")
+            toutes_donnees = cur.fetchall()
+            
+            if toutes_donnees:
+                # Préparer les données
+                data_export = [list(self.redreser_les_donne(row[1:])) for row in toutes_donnees]
+                headers = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
+                
+                # Créer l'exporteur avec l'emplacement personnalisé
+                from Export import DataExporter
+                exporter = DataExporter(output_dir=output_dir)
+                
+                # Utiliser la date du jour pour le nom du fichier
+                from datetime import datetime
+                today = datetime.now().strftime("%Y%m%d")
+
+                files = exporter.export_data(
+                    data_export,
+                    f"rapport_bcc_complet_{today}",
+                    formats=formats,
+                    title="Rapport BCC - Historique Complet des Opérations",
+                    headers=headers
+                )
+                
+                if files:
+                    message = f"Export complet dans {output_dir}!\n{len(files)} fichier(s) - {len(toutes_donnees)} enregistrements"
+                    toast(message, duration=4)
+                    return files
+                else:
+                    toast("Erreur lors de l'export complet", background=[1,0,0,1])
+                    return {}
+                    
+            else:
+                toast("Aucune donnée dans la base")
+                return {}
+                
+        except Exception as e:
+            toast("Erreur lors de l'export complet", background=[1,0,0,1])
+            print(f"Erreur: {e}")
+            return {}
+
+    # Modifiez votre fonction lancer_export_avec_formats existante
+    def lancer_export_avec_formats(self, formats):
+        """
+        Version modifiée qui demande d'abord l'emplacement
+        """
+        self.menu_export.dismiss()
+        
+        # Demander quel type d'export (date actuelle ou complet)
+        content_layout = MDBoxLayout(
+            orientation="vertical",
+            spacing="20dp",
+            size_hint_y=None,
+            height="120dp"
+        )
+        
+        btn_date_actuelle = MDRaisedButton(
+            text=f"Exporter le {self.DATE}",
+            size_hint_y=None,
+            height="40dp",
+            on_release=lambda x: self.choisir_emplacement_export(formats, False)
+        )
+        
+        btn_tout = MDRaisedButton(
+            text="Exporter tout l'historique",
+            size_hint_y=None,
+            height="40dp",
+            on_release=lambda x: self.choisir_emplacement_export(formats, True)
+        )
+        
+        content_layout.add_widget(btn_date_actuelle)
+        content_layout.add_widget(btn_tout)
+        
+        self.dialog_export = MDDialog(
+            title="Type d'export",
+            type="custom",
+            content_cls=content_layout,
+            buttons=[
+                MDFlatButton(
+                    text="ANNULER",
+                    theme_text_color="Custom",
+                    text_color=(.5, .5, .5, 1),
+                    on_release=self.annuler_export
+                ),
+            ],
+        )
+        
+        self.dialog_export.open()
 #=========== Fin =====================
 
 BCC().run()
