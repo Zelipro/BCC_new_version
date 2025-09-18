@@ -1,5 +1,6 @@
 # Tested: 2024/08/05
 # by Kasper Arfman
+# Updated: 2025/09/18 - Fixed deprecated actions
 name: Build APK
 on: [push]
 jobs:
@@ -8,8 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
-
+        uses: actions/checkout@v4
       - name: Buildozer dependencies
         run: |
           sudo apt update
@@ -17,16 +17,14 @@ jobs:
           pip install --user --upgrade Cython virtualenv
           pip install --user --upgrade buildozer
           echo 'export PATH=$PATH:~/.local/bin/' >> ~/.bashrc
-
       - name: Handle Java path
         run: |
           export JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64
           sudo update-java-alternatives --set ${JAVA_HOME}
           export PATH=$JAVA_HOME/bin:$PATH
           yes | buildozer -v android debug
-
       - name: Upload artifacts
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: package
           path: bin/*.apk
