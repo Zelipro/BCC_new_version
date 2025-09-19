@@ -3,6 +3,7 @@ title = BCC Control
 package.name = BCC
 package.domain = org.example
 source.dir = .
+requirements.source.python3 = 3.10
 source.include_exts = py,png,jpg,kv,atlas,db
 version = 2.0
 requirements = python3,kivy,kivymd,pillow,requests,pandas,openpyxl,python-docx,reportlab==4.0.6
