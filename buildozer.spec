@@ -1,27 +1,17 @@
 [app]
-title = BCC Control
-package.name = BCC
-package.domain = org.example
+title = BCC
+package.name = bcc
+package.domain = com.zelipro.bcc
 source.dir = .
-requirements.source.python3 = 3.10.13
-source.include_exts = py,png,jpg,kv,atlas,db
-version = 2.0
+version = 2.1
 requirements = python3,kivy,kivymd,pillow,requests,pandas,openpyxl,python-docx,reportlab
-icon.filename = %(source.dir)s/CEET.png
+orientation = portrait
 
 [buildozer]
 log_level = 2
 
 [android]
-api = 34
+archs = arm64-v8a, armeabi-v7a
+api = 31
 minapi = 21
 ndk = 25b
-sdk = 34
-android.permissions = INTERNET
-android.archs = arm64-v8a, armeabi-v7a
-# Supprimer cette ligne dupliquée :
-# orientation = all
-android.orientation = portrait
-# Ajouter ces lignes pour éviter les problèmes de permissions :
-android.accept_sdk_license = True
-android.skip_update = False
