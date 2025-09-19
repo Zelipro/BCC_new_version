@@ -3,7 +3,7 @@ title = BCC
 package.name = bcc
 package.domain = com.zelipro.bcc
 source.dir = .
-version = 2.1
+version = 2.0
 requirements = python3,kivy,kivymd,pillow,requests,pandas,openpyxl,python-docx,reportlab
 orientation = portrait
 
