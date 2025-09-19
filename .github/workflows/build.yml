@@ -1,24 +1,35 @@
 name: Build
 on:
   push:
-
 jobs:
   # Build job. Builds app for Android with Buildozer
   build-android:
     name: Build for Android
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
+      # Nouvelle étape : Installation des dépendances système nécessaires
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            gettext \
+            autopoint \
+            libtool \
+            automake \
+            autoconf \
+            build-essential \
+            pkg-config
+      
       - name: Build with Buildozer
         uses: Zelipro/buildozer-action@master
         id: buildozer
         with:
           workdir: .
           buildozer_version: stable
-
+      
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
