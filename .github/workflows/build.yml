@@ -8,7 +8,7 @@ on: [push]
 jobs:
   build-android:
     name: Build for Android
-    runs-on: ubuntu-20.04  # Using Ubuntu 20.04 to avoid Python 3.12 issues
+    runs-on: ubuntu-lastest  # Using Ubuntu 20.04 to avoid Python 3.12 issues
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
