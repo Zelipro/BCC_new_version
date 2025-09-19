@@ -5,7 +5,7 @@ package.domain = org.example
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,db
 version = 2.0
-requirements = python3,kivy,kivymd,pillow,requests,pandas,openpyxl,python-docx,reportlab
+requirements = python3,kivy,kivymd,pillow,requests,pandas,openpyxl,python-docx,reportlab==4.0.6
 icon.filename = %(source.dir)s/CEET.png
 
 [buildozer]
