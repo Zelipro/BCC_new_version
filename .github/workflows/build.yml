@@ -11,8 +11,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build with Buildozer
-        uses: Zelipro/buildozer-action@master
+      - name: Build with Buildozer 
+        uses: kivy/buildozer-action@v1
         id: buildozer
         with:
           workdir: .
