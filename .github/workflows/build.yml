@@ -1,61 +1,24 @@
 name: Build
 on:
   push:
+
 jobs:
   # Build job. Builds app for Android with Buildozer
   build-android:
     name: Build for Android
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
-      # Étape critique : Installation des dépendances système manquantes
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y \
-            build-essential \
-            git \
-            autoconf \
-            automake \
-            libtool \
-            gettext \
-            gettext-base \
-            autopoint \
-            zlib1g-dev \
-            libffi-dev \
-            libssl-dev \
-            python3-dev \
-            pkg-config \
-            cmake \
-            wget \
-            curl \
-            unzip \
-            zip
-          
-          # Vérifier que autopoint est installé
-          which autopoint || (echo "ERROR: autopoint not found" && exit 1)
-          echo "✅ All critical dependencies installed successfully"
-      
-      # Installation optionnelle de Java (pour éviter les erreurs)
-      - name: Install Java (optional)
-        run: |
-          sudo apt-get install -y openjdk-17-jdk openjdk-17-jre || echo "⚠️ Java installation failed, continuing..."
-      
-      # Configuration de l'environnement
-      - name: Setup environment
-        run: |
-          echo "BUILDOZER_WARN_ON_ROOT=0" >> $GITHUB_ENV
-          echo "APP_ANDROID_ACCEPT_SDK_LICENSE=1" >> $GITHUB_ENV
-      
-      - name: Build with Buildozer 
-        uses: Zelipro/buildozer-action@master
+
+      - name: Build with Buildozer
+        uses: Zelipro/buildozer-action@v1
         id: buildozer
         with:
           workdir: .
           buildozer_version: stable
-      
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
