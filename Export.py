@@ -169,4 +169,185 @@ class DataExporter:
                     created_files[format_type] = str(filepath)
                     print(f"✓ Fichier {format_type.upper()} créé: {filepath}")
                 else:
-                    print(f"
+                    print(f"✗ Erreur création {format_type}")
+                
+            except Exception as e:
+                print(f"✗ Erreur export {format_type}: {e}")
+                traceback.print_exc()
+        
+        return created_files
+    
+    def _normalize_data(self, data, headers=None):
+        """Normaliser les données en format standard"""
+        if not data:
+            return {'headers': headers or [], 'rows': []}
+        
+        try:
+            # Si c'est une liste de dictionnaires
+            if isinstance(data[0], dict):
+                headers = headers or list(data[0].keys())
+                rows = [[str(row.get(col, '')) for col in headers] for row in data]
+            
+            # Si c'est une liste de listes
+            elif isinstance(data[0], (list, tuple)):
+                headers = headers or [f"Colonne {i+1}" for i in range(len(data[0]))]
+                rows = [[str(cell) for cell in row] for row in data]
+            
+            # Si c'est une liste simple
+            else:
+                headers = headers or ['Valeur']
+                rows = [[str(item)] for item in data]
+            
+            return {'headers': headers, 'rows': rows}
+        
+        except Exception as e:
+            print(f"Erreur normalisation: {e}")
+            return {'headers': headers or ['Erreur'], 'rows': [['Erreur de données']]}
+    
+    def _export_to_pdf(self, normalized_data, filepath, title):
+        """Exporter en PDF avec gestion d'erreurs robuste"""
+        try:
+            pdf = MobilePDF(title=title)
+            pdf.add_page()
+            
+            # Ajouter des informations
+            pdf.set_font('Arial', 'B', 12)
+            info_text = f"Nombre d'enregistrements: {len(normalized_data['rows'])}"
+            pdf.cell(0, 10, info_text, 0, 1)
+            pdf.ln(5)
+            
+            # Ajouter le tableau
+            if normalized_data['rows']:
+                headers = normalized_data['headers']
+                available_width = pdf.w - 2 * pdf.l_margin
+                
+                if len(headers) > 0:
+                    # Largeurs égales par défaut
+                    col_widths = [available_width / len(headers)] * len(headers)
+                    pdf.add_table(headers, normalized_data['rows'], col_widths)
+            else:
+                pdf.set_font('Arial', '', 14)
+                pdf.cell(0, 10, 'Aucune donnée à afficher', 0, 1, 'C')
+            
+            # Sauvegarder avec gestion d'erreurs
+            pdf.output(str(filepath))
+            
+            # Vérifier que le fichier a été créé
+            if filepath.exists() and filepath.stat().st_size > 0:
+                return True
+            else:
+                print(f"Fichier PDF vide ou non créé: {filepath}")
+                return False
+                
+        except Exception as e:
+            print(f"Erreur création PDF: {e}")
+            traceback.print_exc()
+            return False
+    
+    def _export_to_excel(self, normalized_data, filepath, title):
+        """Exporter en Excel avec gestion d'erreurs"""
+        try:
+            # Créer le DataFrame
+            if normalized_data['rows']:
+                df = pd.DataFrame(normalized_data['rows'], columns=normalized_data['headers'])
+            else:
+                df = pd.DataFrame()
+            
+            # Écrire dans Excel
+            with pd.ExcelWriter(str(filepath), engine='openpyxl') as writer:
+                df.to_excel(writer, sheet_name='Données', index=False)
+                
+                # Ajouter une feuille d'informations
+                info_data = {
+                    'Information': ['Titre', 'Date de création', 'Nombre de lignes'],
+                    'Valeur': [title, datetime.now().strftime('%d/%m/%Y %H:%M:%S'), len(normalized_data['rows'])]
+                }
+                info_df = pd.DataFrame(info_data)
+                info_df.to_excel(writer, sheet_name='Informations', index=False)
+            
+            # Vérifier que le fichier a été créé
+            if filepath.exists() and filepath.stat().st_size > 0:
+                return True
+            else:
+                print(f"Fichier Excel vide ou non créé: {filepath}")
+                return False
+                
+        except Exception as e:
+            print(f"Erreur création Excel: {e}")
+            traceback.print_exc()
+            return False
+
+# Fonctions utilitaires pour usage rapide
+def export_to_pdf(data, filename, title="Rapport", headers=None):
+    """Fonction simple pour exporter seulement en PDF"""
+    try:
+        exporter = DataExporter()
+        return exporter.export_data(data, filename, formats=['pdf'], title=title, headers=headers)
+    except Exception as e:
+        print(f"Erreur export PDF: {e}")
+        return {}
+
+def export_to_excel(data, filename, title="Rapport", headers=None):
+    """Fonction simple pour exporter seulement en Excel"""
+    try:
+        exporter = DataExporter()
+        return exporter.export_data(data, filename, formats=['xlsx'], title=title, headers=headers)
+    except Exception as e:
+        print(f"Erreur export Excel: {e}")
+        return {}
+
+# Test pour vérifier que les modules sont disponibles
+def test_export_modules():
+    """Tester la disponibilité des modules d'export"""
+    results = {
+        'pandas': False,
+        'fpdf': False,
+        'openpyxl': False
+    }
+    
+    try:
+        import pandas
+        results['pandas'] = True
+        print("✓ Pandas disponible")
+    except ImportError:
+        print("✗ Pandas non disponible")
+    
+    try:
+        from fpdf import FPDF
+        results['fpdf'] = True
+        print("✓ FPDF disponible")
+    except ImportError:
+        print("✗ FPDF non disponible")
+    
+    try:
+        import openpyxl
+        results['openpyxl'] = True
+        print("✓ OpenPyXL disponible")
+    except ImportError:
+        print("✗ OpenPyXL non disponible")
+    
+    return results
+
+if __name__ == "__main__":
+    # Test des modules
+    test_export_modules()
+    
+    # Données d'exemple pour test
+    data_test = [
+        ['12/09/2024', '14:30', 'Jean', 'O', 'Ouverture normale', 'Succès'],
+        ['12/09/2024', '18:00', 'Marie', 'F', 'Fermeture', 'Succès'],
+        ['13/09/2024', '08:15', 'Pierre', 'DD', 'Défaillance détectée', 'IC']
+    ]
+    headers_test = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
+    
+    # Test d'export
+    exporter = DataExporter()
+    files = exporter.export_data(
+        data_test,
+        "test_bcc",
+        formats=['pdf', 'xlsx'],
+        title="Test BCC Export",
+        headers=headers_test
+    )
+    
+    print(f"Fichiers créés: {files}")
