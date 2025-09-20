@@ -583,40 +583,61 @@ class BCC(MDApp):
         self.Current_lang = "fr"
 
     def on_start(self):
-        #self.root_window.remove_widget(self.root_window.children[0])
-        self.con = sqlite3.connect("base.db")
-        cur = self.con.cursor()
-        cur.execute("CREATE TABLE IF NOT EXISTS BCC (id INTEGER PRIMARY KEY AUTOINCREMENT, Date TEXT, Heur TEXT, Operator TEXT, O_F_DD TEXT, Operation TEXT, Mension TEXT)")
-        self.con.commit()
-        self.DATE = strftime("%D")#Pour la date plus tart dans Page4
-        self.PAGE4_Liste = []
-        self.Data_Donne = [] #C'est pour le synchronisation en ligne
-        self.index_syn = 0 #Pour s'occuper de la synchrnoisation
-        self.Sup = SupabaseDB(
-            supabase_url="https://jutueskohextubwszbhv.supabase.co",
-            supabase_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1dHVlc2tvaGV4dHVid3N6Ymh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMTQ5MDUsImV4cCI6MjA3MzY5MDkwNX0.q3uKtQ3EKdpv4MDuJE0pCrBOBdCbMf9pu36RmoDNGKw"
-        )
-        #Pour me permettre de faire les changement d'aafichage
-        self.Choix_affichage2 = "Data"
-        self.Choix_affichage = "Data"
-        
-        self.is_syncing = False
-        #Fin Pour me permettre de faire les changement d'aafichage
-
-        """Configuration au démarrage de l'app"""
-        from kivy.core.window import Window
-        from kivy.utils import platform
-        
-        if platform in ('android', 'ios'):
-            # Configuration mobile
-            Window.softinput_mode = 'below_target'
+        """Démarrage corrigé avec gestion d'erreurs"""
+        try:
+            # Initialiser la base de données
+            self.con = sqlite3.connect("base.db")
+            cur = self.con.cursor()
+            cur.execute("""CREATE TABLE IF NOT EXISTS BCC (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, 
+                Date TEXT, 
+                Heur TEXT, 
+                Operator TEXT, 
+                O_F_DD TEXT, 
+                Operation TEXT, 
+                Mension TEXT
+            )""")
+            self.con.commit()
             
-        # Lier l'événement de changement de taille (clavier)
-        Window.bind(on_resize=self.on_window_resize)
-        
-        #self.synchroniser() #Permettant de mettre a jour les données en ligne comme en local
-        self.Verifi_moi_les_pages()
-        
+            # Variables d'initialisation
+            self.DATE = strftime("%D")
+            self.PAGE4_Liste = []
+            self.Data_Donne = {}
+            self.index_syn = 0
+            self.is_syncing = False
+            self.Choix_affichage2 = "Data"
+            self.Choix_affichage = "Data"
+            
+            # Initialiser Supabase avec gestion d'erreurs
+            try:
+                self.Sup = SupabaseDB(
+                    supabase_url="https://jutueskohextubwszbhv.supabase.co",
+                    supabase_key="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imp1dHVlc2tvaGV4dHVid3N6Ymh2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxMTQ5MDUsImV4cCI6MjA3MzY5MDkwNX0.q3uKtQ3EKdpv4MDuJE0pCrBOBdCbMf9pu36RmoDNGKw"
+                )
+                print(f"Supabase initialisé - Statut connexion: {self.Sup.connection_status}")
+            except Exception as e:
+                print(f"Erreur initialisation Supabase: {e}")
+                self.Sup = None
+            
+            # Configuration mobile
+            from kivy.core.window import Window
+            from kivy.utils import platform
+            
+            if platform in ('android', 'ios'):
+                Window.softinput_mode = 'below_target'
+            
+            Window.bind(on_resize=self.on_window_resize)
+            
+            # Démarrer la vérification des pages
+            self.Verifi_moi_les_pages()
+            
+            # Première synchronisation (différée)
+            Clock.schedule_once(lambda dt: self.synchroniser(), 5)
+            
+        except Exception as e:
+            print(f"Erreur lors du démarrage: {e}")
+            import traceback
+            traceback.print_exc()
         
     
     def on_window_resize(self, window, width, height):
@@ -654,60 +675,80 @@ class BCC(MDApp):
             elmt.text = Element.get(elmt2)
     
     def Verifi_moi_les_pages(self):
-        # Vérifier seulement si on n'est pas sur l'écran de chargement
-        if self.cr.current != 'loading':
-            dic = {"Page1":self.page1 , "Page2":self.page2 , "Page3":self.page3,"Page4":self.page4}
-            dic.get(self.cr.current)()
+        """Vérification des pages corrigée"""
+        try:
+            # Vérifier seulement si on n'est pas sur l'écran de chargement
+            if hasattr(self, 'cr') and self.cr and self.cr.current != 'loading':
+                dic = {
+                    "Page1": self.page1, 
+                    "Page2": self.page2, 
+                    "Page3": self.page3,
+                    "Page4": self.page4
+                }
+                page_func = dic.get(self.cr.current)
+                if page_func:
+                    page_func()
+            
+            # Synchronisation périodique
+            if hasattr(self, 'index_syn'):
+                if self.index_syn % 20 == 0:  # Toutes les 10 secondes au lieu de 5
+                    if hasattr(self, 'Sup') and self.Sup:
+                        self.synchroniser()
+                self.index_syn += 1
         
-        if self.index_syn % 10 == 0:
-            self.synchroniser()
-            self.index_syn += 1
-        Clock.schedule_once(lambda dt : self.Verifi_moi_les_pages(),.5)
+        except Exception as e:
+            print(f"Erreur Verifi_moi_les_pages: {e}")
+        
+        finally:
+            # Reprogrammer la vérification
+            Clock.schedule_once(lambda dt: self.Verifi_moi_les_pages(), 1)
     
     def synchroniser(self):
-        """CORRECTION 4: Synchronisation améliorée"""
-        if self.is_syncing or not self.Sup:
+        """Synchronisation corrigée avec gestion d'erreurs"""
+        if self.is_syncing or not hasattr(self, 'Sup') or not self.Sup:
             return
         
-        self.Data_Donne = {}
         self.is_syncing = True
         print("Début synchronisation...")
         
         try:
+            # Test de connexion
+            if not self.Sup.connection_status:
+                print("Pas de connexion internet - synchronisation annulée")
+                return
+            
             # 1. Récupérer données Supabase
             result = self.Sup.obtenir_toutes_donnees("bcc_operations")
             
-            if result['success'] and result["data"]:
+            if result['success'] and result.get("data"):
                 self.Data_Donne = result["data"]
                 print(f"Récupéré {len(self.Data_Donne)} enregistrements de Supabase")
+                
+                # 2. Synchroniser: Supabase vers Local
+                self.sync_supabase_to_local()
             else:
                 print("Aucune donnée Supabase ou erreur de connexion")
-                
-            # 2. Récupérer données locales
+            
+            # 3. Synchroniser: Local vers Supabase
+            self.sync_local_to_supabase()
+            
+            print("Synchronisation terminée avec succès")
+            
+        except Exception as e:
+            print(f"Erreur synchronisation: {e}")
+            # Afficher le toast seulement si l'interface est prête
+            if hasattr(self, 'cr') and self.cr:
+                from kivymd.toast import toast
+                toast("Erreur de synchronisation", duration=2)
+        
+        finally:
+            self.is_syncing = False
+    
+    def sync_supabase_to_local(self):
+        """Synchronise les données Supabase vers la base locale"""
+        try:
             cur = self.con.cursor()
-            cur.execute("SELECT * FROM BCC")
-            local_records = cur.fetchall()
             
-            # 3. Synchroniser: Local vers Supabase (données manquantes)
-            for local_record in local_records:
-                local_data = list(local_record[1:])  # Sans l'ID local
-                
-                # Vérifier si ce record existe déjà sur Supabase
-                exists_online = False
-                for supabase_id, supabase_record in self.Data_Donne.items():
-                    if (supabase_record['date'] == local_data[0] and 
-                        supabase_record['heur'] == local_data[1] and
-                        supabase_record['operator'] == local_data[2]):
-                        exists_online = True
-                        break
-                
-                if not exists_online:
-                    # Ajouter à Supabase
-                    add_result = self.Sup.ajouter_donnees("bcc_operations", local_data)
-                    if add_result['success']:
-                        print(f"Ajouté à Supabase: {local_data[0]} - {local_data[2]}")
-            
-            # 4. Synchroniser: Supabase vers Local (données manquantes)
             for supabase_id, supabase_record in self.Data_Donne.items():
                 # Vérifier si ce record existe en local
                 cur.execute("""
@@ -728,20 +769,43 @@ class BCC(MDApp):
                         supabase_record['operation'],
                         supabase_record['mension']
                     ))
-                    self.con.commit()
                     print(f"Ajouté en local: {supabase_record['date']} - {supabase_record['operator']}")
             
-            print("Synchronisation terminée avec succès")
+            self.con.commit()
             
         except Exception as e:
-            print(f"Erreur synchronisation: {e}")
-        
-        finally:
-            self.is_syncing = False
+            print(f"Erreur sync Supabase->Local: {e}")
+
+    def sync_local_to_supabase(self):
+        """Synchronise les données locales vers Supabase"""
+        try:
+            cur = self.con.cursor()
+            cur.execute("SELECT * FROM BCC")
+            local_records = cur.fetchall()
             
-        # Programmer la prochaine synchronisation (toutes les 30 secondes)
-        Clock.schedule_once(lambda dt: self.synchroniser(), 30)
+            for local_record in local_records:
+                local_data = list(local_record[1:])  # Sans l'ID local
+                
+                # Vérifier si ce record existe déjà sur Supabase
+                exists_online = False
+                for supabase_id, supabase_record in self.Data_Donne.items():
+                    if (supabase_record['date'] == local_data[0] and 
+                        supabase_record['heur'] == local_data[1] and
+                        supabase_record['operator'] == local_data[2]):
+                        exists_online = True
+                        break
+                
+                if not exists_online:
+                    # Ajouter à Supabase
+                    add_result = self.Sup.ajouter_donnees("bcc_operations", local_data)
+                    if add_result['success']:
+                        print(f"Ajouté à Supabase: {local_data[0]} - {local_data[2]}")
+                    else:
+                        print(f"Erreur ajout Supabase: {add_result.get('error', 'Inconnue')}")
             
+        except Exception as e:
+            print(f"Erreur sync Local->Supabase: {e}")
+ 
     def Changer_font1(self,instance):
         self.theme_cls.theme_style = "Dark" if self.theme_cls.theme_style == 'Light' else "Light"
     
@@ -1429,18 +1493,20 @@ class BCC(MDApp):
             print(f"Erreur export: {e}")
             return {}
     
-    def redreser_les_donne(self,elmt):
-        Ret = []
-        for elmt1 in elmt:
-            ret = ""
-            for emt in elmt1:
-                print(elmt1.index(emt))
-                if elmt1.index(emt) % 15 == 0 and elmt1.index(emt) != 0:
-                    ret += emt + "\n"
-                else:
-                    ret += emt
-            Ret.append(ret)
-        return tuple(Ret)
+    def redreser_les_donne(self, elmt):
+        """Fonction corrigée pour formater les données d'export"""
+        ret = []
+        for cell in elmt:
+            # Convertir en string et limiter la longueur
+            cell_str = str(cell)
+            # Diviser en lignes si trop long (tous les 20 caractères)
+            if len(cell_str) > 20:
+                lines = [cell_str[i:i+20] for i in range(0, len(cell_str), 20)]
+                formatted_cell = '\n'.join(lines)
+            else:
+                formatted_cell = cell_str
+            ret.append(formatted_cell)
+        return tuple(ret)
             
     def exporter_toutes_donnees_bcc(self, formats=['pdf']):
         """
