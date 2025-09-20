@@ -1,9 +1,5 @@
 import pandas as pd
-from reportlab.lib.pagesizes import letter, A4
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import inch
-from reportlab.lib import colors
+from fpdf import FPDF
 from docx import Document
 from docx.shared import Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -12,9 +8,99 @@ import os
 from datetime import datetime
 from pathlib import Path
 
+class MobilePDF(FPDF):
+    """Classe PDF personnalisée avec en-têtes et pieds de page"""
+    
+    def __init__(self, title="Rapport"):
+        super().__init__()
+        self.report_title = title
+        self.set_auto_page_break(auto=True, margin=15)
+        
+    def header(self):
+        """En-tête de page"""
+        self.set_font('Arial', 'B', 16)
+        self.cell(0, 10, self.report_title, 0, 1, 'C')
+        self.set_font('Arial', '', 10)
+        self.cell(0, 5, f'Généré le: {datetime.now().strftime("%d/%m/%Y à %H:%M")}', 0, 1, 'C')
+        self.ln(10)
+        
+    def footer(self):
+        """Pied de page"""
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+        
+    def add_table(self, headers, data, col_widths=None):
+        """
+        Ajouter un tableau au PDF
+        
+        Args:
+            headers (list): En-têtes des colonnes
+            data (list): Données du tableau
+            col_widths (list): Largeurs des colonnes (optionnel)
+        """
+        if not headers or not data:
+            self.set_font('Arial', '', 12)
+            self.cell(0, 10, 'Aucune donnée à afficher', 0, 1, 'C')
+            return
+            
+        # Calculer les largeurs de colonnes
+        if not col_widths:
+            available_width = self.w - 2 * self.l_margin
+            col_widths = [available_width / len(headers)] * len(headers)
+        
+        # En-têtes
+        self.set_font('Arial', 'B', 10)
+        self.set_fill_color(54, 96, 146)  # Bleu foncé
+        self.set_text_color(255, 255, 255)  # Blanc
+        
+        for i, header in enumerate(headers):
+            self.cell(col_widths[i], 8, str(header), 1, 0, 'C', True)
+        self.ln()
+        
+        # Données
+        self.set_font('Arial', '', 9)
+        self.set_text_color(0, 0, 0)  # Noir
+        
+        fill = False
+        for row in data:
+            if fill:
+                self.set_fill_color(240, 240, 240)  # Gris clair
+            else:
+                self.set_fill_color(255, 255, 255)  # Blanc
+                
+            # Vérifier si on a besoin d'une nouvelle page
+            if self.get_y() > self.h - 30:  # 30mm du bas
+                self.add_page()
+                # Réafficher les en-têtes sur la nouvelle page
+                self.set_font('Arial', 'B', 10)
+                self.set_fill_color(54, 96, 146)
+                self.set_text_color(255, 255, 255)
+                for i, header in enumerate(headers):
+                    self.cell(col_widths[i], 8, str(header), 1, 0, 'C', True)
+                self.ln()
+                self.set_font('Arial', '', 9)
+                self.set_text_color(0, 0, 0)
+            
+            for i, cell_data in enumerate(row):
+                # Tronquer le texte si trop long
+                text = str(cell_data)[:30] + "..." if len(str(cell_data)) > 30 else str(cell_data)
+                self.cell(col_widths[i], 6, text, 1, 0, 'C', fill)
+            self.ln()
+            fill = not fill  # Alterner les couleurs
+            
+    def add_text(self, text, font_size=12, bold=False):
+        """Ajouter du texte simple"""
+        font_style = 'B' if bold else ''
+        self.set_font('Arial', font_style, font_size)
+        self.set_text_color(0, 0, 0)
+        self.cell(0, 8, text, 0, 1)
+        self.ln(3)
+
 class DataExporter:
     """
     Classe pour exporter des données en format PDF, Word (.docx) et Excel (.xlsx)
+    Version optimisée pour Android avec fpdf au lieu de ReportLab
     
     Usage:
         exporter = DataExporter()
@@ -61,7 +147,7 @@ class DataExporter:
                     self._export_to_pdf(normalized_data, filepath, title)
                 elif format_type.lower() in ['xlsx', 'excel']:
                     self._export_to_excel(normalized_data, filepath, title)
-                elif format_type.lower() in ['docx', 'word']:
+                elif format_type.lower() in ['docx', 'word', 'docs']:  # Ajout de 'docs'
                     self._export_to_word(normalized_data, filepath, title)
                 else:
                     print(f"Format {format_type} non supporté")
@@ -72,6 +158,9 @@ class DataExporter:
                 
             except Exception as e:
                 print(f"✗ Erreur lors de la création du fichier {format_type}: {e}")
+                # Afficher plus de détails sur l'erreur pour debug
+                import traceback
+                traceback.print_exc()
         
         return created_files
     
@@ -92,12 +181,12 @@ class DataExporter:
         # Si c'est une liste de dictionnaires
         if isinstance(data[0], dict):
             headers = headers or list(data[0].keys())
-            rows = [[row.get(col, '') for col in headers] for row in data]
+            rows = [[str(row.get(col, '')) for col in headers] for row in data]
         
         # Si c'est une liste de listes
         elif isinstance(data[0], (list, tuple)):
             headers = headers or [f"Colonne {i+1}" for i in range(len(data[0]))]
-            rows = [list(row) for row in data]
+            rows = [[str(cell) for cell in row] for row in data]
         
         # Si c'est une liste simple
         else:
@@ -107,56 +196,43 @@ class DataExporter:
         return {'headers': headers, 'rows': rows}
     
     def _export_to_pdf(self, normalized_data, filepath, title):
-        """Exporter en PDF avec ReportLab"""
-        doc = SimpleDocTemplate(str(filepath), pagesize=A4)
-        elements = []
-        styles = getSampleStyleSheet()
+        """Exporter en PDF avec fpdf (compatible Android)"""
+        pdf = MobilePDF(title=title)
+        pdf.add_page()
         
-        # Titre
-        title_style = ParagraphStyle(
-            'CustomTitle',
-            parent=styles['Heading1'],
-            fontSize=18,
-            spaceAfter=30,
-            alignment=1,  # Centre
-            textColor=colors.darkblue
-        )
-        elements.append(Paragraph(title, title_style))
-        elements.append(Spacer(1, 20))
+        # Ajouter des informations
+        pdf.add_text(f"Nombre d'enregistrements: {len(normalized_data['rows'])}", bold=True)
+        pdf.ln(5)
         
-        # Date de génération
-        date_text = f"Généré le: {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
-        elements.append(Paragraph(date_text, styles['Normal']))
-        elements.append(Spacer(1, 20))
-        
-        # Tableau
+        # Ajouter le tableau
         if normalized_data['rows']:
-            table_data = [normalized_data['headers']] + normalized_data['rows']
+            # Calculer les largeurs optimales
+            headers = normalized_data['headers']
+            available_width = pdf.w - 2 * pdf.l_margin
             
-            # Calculer la largeur des colonnes
-            col_count = len(normalized_data['headers'])
-            col_width = (A4[0] - 2*inch) / col_count
-            
-            table = Table(table_data, colWidths=[col_width] * col_count)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('FONTSIZE', (0, 0), (-1, 0), 12),
-                ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
-                ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
-                ('FONTSIZE', (0, 1), (-1, -1), 10),
-                ('GRID', (0, 0), (-1, -1), 1, colors.black),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-            ]))
-            
-            elements.append(table)
+            if len(headers) > 0:
+                # Largeurs égales par défaut
+                col_widths = [available_width / len(headers)] * len(headers)
+                
+                # Ajuster si certaines colonnes sont plus longues
+                max_lengths = []
+                for i, header in enumerate(headers):
+                    max_len = len(str(header))
+                    for row in normalized_data['rows'][:5]:  # Échantillon des 5 premières lignes
+                        if i < len(row):
+                            max_len = max(max_len, len(str(row[i])[:30]))  # Limité à 30 char
+                    max_lengths.append(max_len)
+                
+                # Redistribuer les largeurs selon le contenu
+                total_chars = sum(max_lengths) if sum(max_lengths) > 0 else len(headers)
+                col_widths = [(max_len / total_chars) * available_width for max_len in max_lengths]
+                
+                pdf.add_table(headers, normalized_data['rows'], col_widths)
         else:
-            elements.append(Paragraph("Aucune donnée à afficher", styles['Normal']))
+            pdf.add_text("Aucune donnée à afficher", font_size=14)
         
-        doc.build(elements)
+        # Sauvegarder
+        pdf.output(str(filepath))
     
     def _export_to_excel(self, normalized_data, filepath, title):
         """Exporter en Excel avec pandas et openpyxl"""
@@ -176,29 +252,33 @@ class DataExporter:
             worksheet = writer.sheets['Données']
             
             # Mise en forme des en-têtes
-            from openpyxl.styles import Font, PatternFill, Alignment
+            try:
+                from openpyxl.styles import Font, PatternFill, Alignment
+                
+                header_font = Font(bold=True, color='FFFFFF')
+                header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
+                
+                for col in range(1, len(normalized_data['headers']) + 1):
+                    cell = worksheet.cell(row=1, column=col)
+                    cell.font = header_font
+                    cell.fill = header_fill
+                    cell.alignment = Alignment(horizontal='center')
+                
+                # Ajuster la largeur des colonnes
+                for column in worksheet.columns:
+                    max_length = 0
+                    column_letter = column[0].column_letter
+                    for cell in column:
+                        try:
+                            if len(str(cell.value)) > max_length:
+                                max_length = len(str(cell.value))
+                        except:
+                            pass
+                    adjusted_width = min(max_length + 2, 50)
+                    worksheet.column_dimensions[column_letter].width = adjusted_width
             
-            header_font = Font(bold=True, color='FFFFFF')
-            header_fill = PatternFill(start_color='366092', end_color='366092', fill_type='solid')
-            
-            for col in range(1, len(normalized_data['headers']) + 1):
-                cell = worksheet.cell(row=1, column=col)
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.alignment = Alignment(horizontal='center')
-            
-            # Ajuster la largeur des colonnes
-            for column in worksheet.columns:
-                max_length = 0
-                column_letter = column[0].column_letter
-                for cell in column:
-                    try:
-                        if len(str(cell.value)) > max_length:
-                            max_length = len(str(cell.value))
-                    except:
-                        pass
-                adjusted_width = min(max_length + 2, 50)
-                worksheet.column_dimensions[column_letter].width = adjusted_width
+            except ImportError:
+                print("openpyxl.styles non disponible - export Excel basique")
             
             # Ajouter une feuille d'informations
             info_sheet = workbook.create_sheet('Informations')
@@ -250,7 +330,8 @@ class DataExporter:
             for row_idx, row_data in enumerate(normalized_data['rows']):
                 row_cells = table.rows[row_idx + 1].cells
                 for col_idx, cell_data in enumerate(row_data):
-                    row_cells[col_idx].text = str(cell_data)
+                    if col_idx < len(row_cells):  # Vérification de sécurité
+                        row_cells[col_idx].text = str(cell_data)
             
             # Ajustement automatique de la largeur des colonnes
             for column in table.columns:
@@ -291,9 +372,9 @@ if __name__ == "__main__":
     
     # 2. Liste de listes
     data_list = [
-         ['12/09/2024', '14:30', 'Jean', 'O', 'Ouverture normale', 'Succès'],
-    ['12/09/2024', '18:00', 'Marie', 'F', 'Fermeture', 'Succès'],
-    ['13/09/2024', '08:15', 'Pierre', 'DD', 'Défaillance détectée', 'IC']
+        ['12/09/2024', '14:30', 'Jean', 'O', 'Ouverture normale', 'Succès'],
+        ['12/09/2024', '18:00', 'Marie', 'F', 'Fermeture', 'Succès'],
+        ['13/09/2024', '08:15', 'Pierre', 'DD', 'Défaillance détectée', 'IC']
     ]
     headers_list = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
     
@@ -316,7 +397,7 @@ if __name__ == "__main__":
     files2 = exporter.export_data(
         data_list,
         "BCC",
-        formats=['pdf', 'xlsx',"docs"],
+        formats=['pdf', 'xlsx', "docx"],  # Corrigé 'docs' en 'docx'
         title="BCC controle",
         headers=headers_list,
     )
