@@ -27,12 +27,6 @@ android.api = 31
 android.minapi = 21
 android.ndk = 25b
 
-# Configuration de compilation
-android.accept_sdk_license = True
-
-# Informations supplémentaires pour l'app
-android.meta_data = com.google.android.gms.version=@integer/google_play_services_version
-
 [buildozer]
 log_level = 2
 
