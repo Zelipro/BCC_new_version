@@ -11,7 +11,7 @@ orientation = portrait
 log_level = 2
 
 [android]
-archs = arm64-v8a, armeabi-v7a
+archs = arm64-v8a
 api = 31
 minapi = 21
 ndk = 25b
