@@ -26,6 +26,11 @@ from kivymd.uix.scrollview import MDScrollView
 from My_Data import SupabaseDB
 Window.size = [340,620]
 
+import os
+import traceback
+from pathlib import Path
+from kivy.utils import platform
+
 # Écran de chargement personnalisé
 class LoadingScreen(MDScreen):
     def __init__(self, **kwargs):
@@ -1189,7 +1194,7 @@ class BCC(MDApp):
                 "text": elmt1,
                 "icon": elmt2,
                 # CORRECTION: Utiliser une lambda pour passer les bons arguments
-                "on_release": lambda btn = instance , text=elmt1: self.Faire_Icon_4(btn, text)
+                "on_release": lambda btn = instance , text=elmt1: self.Faire_Icon_4_android(btn, text)
             }
             Items.append(Add)
 
@@ -1434,64 +1439,135 @@ class BCC(MDApp):
 #======= Les nouveaux fonctions ======
 # Ajoutez ces méthodes dans votre classe BCC() :
 
-    def exporter_donnees_bcc(self, formats=['pdf']):
+    def exporter_donnees_bcc_android(self, formats=['pdf'], output_dir=None):
         """
-        Exporter les données de la date sélectionnée dans Page4
-        
-        Args:
-            formats (list): Liste des formats d'export ('pdf', 'xlsx', 'docx')
-        
-        Returns:
-            dict: Dictionnaire des fichiers créés
+        Version spécifiquement optimisée pour Android
         """
         try:
+            print(f"=== DÉBUT EXPORT ANDROID ===")
+            print(f"Platform détectée: {platform}")
+            print(f"Formats demandés: {formats}")
+            
             # Récupérer les données pour la date actuelle
             cur = self.con.cursor()
             cur.execute("SELECT * FROM BCC WHERE Date = ?", (self.DATE,))
             donnees = cur.fetchall()
+            print(f"Données récupérées: {len(donnees)} lignes")
             
-            if donnees:
-                # Préparer les données (exclure l'ID de la base de données)
-                data_export = [list(self.redreser_les_donne(row[1:])) for row in donnees]  # row[1:] exclut l'ID
-                headers = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
-                
-                # Créer l'exporteur
-                from Export import DataExporter  # Assurez-vous que le nom du fichier est correct
-                exporter = DataExporter(output_dir="exports_bcc")
-                
-                # Nettoyer le nom de fichier (remplacer les / par _)
-                date_clean = self.DATE.replace('/', '_').replace(' ', '_')
-                
-                files = exporter.export_data(
-                    data_export,
-                    f"rapport_bcc_{date_clean}",
-                    formats=formats,
-                    title=f"Rapport BCC - Contrôle des Opérations du {self.DATE}",
-                    headers=headers
-                )
-                
-                # Notification de succès
-                if files:
-                    message = f"Export réussi ! {len(files)} fichier(s) créé(s)"
-                    toast(message, duration=3)
-                    print("Fichiers créés:", files)
-                    return files
-                else:
-                    toast("Erreur lors de l'export", background=[1,0,0,1])
-                    return {}
-                    
-            else:
-                toast(f"Aucune donnée à exporter pour le {self.DATE}")
+            if not donnees:
+                toast(f"Aucune donnée pour le {self.DATE}")
                 return {}
+            
+            # Préparer les données pour l'export
+            data_export = []
+            for row in donnees:  # Exclure l'ID
+                clean_row = []
+                for cell in row[1:]:
+                    cell_str = str(cell) if cell is not None else ""
+                    # Nettoyer les caractères problématiques pour Android
+                    cell_clean = cell_str.replace('\n', ' ').replace('\r', '')[:50]  # Limite à 50 chars
+                    clean_row.append(cell_clean)
+                data_export.append(clean_row)
+            
+            headers = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
+            print(f"Données préparées: {len(data_export)} lignes")
+            
+            # Utiliser l'exporteur Android optimisé
+            try:
+                from Export import export_to_android, test_export_android
+                print("Module Export importé avec succès")
                 
-        except ImportError as e:
-            toast("Module d'export non trouvé", background=[1,0,0,1])
-            print(f"Erreur import: {e}")
-            return {}
+                # Test rapide des modules
+                test_result = test_export_android()
+                print(f"Test modules: {test_result}")
+                
+                if not test_result:
+                    toast("Modules d'export non disponibles", background=[1,0,0,1])
+                    return {}
+                
+            except ImportError as e:
+                print(f"ERREUR: Impossible d'importer Export.py: {e}")
+                toast("Module d'export manquant", background=[1,0,0,1])
+                return {}
+            
+            # Définir le répertoire de sortie pour Android
+            if not output_dir:
+                if platform == 'android':
+                    # Essayer plusieurs emplacements Android
+                    possible_dirs = [
+                        "/storage/emulated/0/Download/BCC_Exports",
+                        "/storage/emulated/0/Documents/BCC_Exports", 
+                        "/sdcard/Download/BCC_Exports",
+                        "BCC_Exports"  # Fallback dans le dossier de l'app
+                    ]
+                else:
+                    possible_dirs = ["BCC_Exports"]
+                
+                output_dir = None
+                for test_dir in possible_dirs:
+                    try:
+                        os.makedirs(test_dir, exist_ok=True)
+                        # Test d'écriture
+                        test_file = os.path.join(test_dir, "test.txt")
+                        with open(test_file, 'w') as f:
+                            f.write("test")
+                        os.remove(test_file)
+                        output_dir = test_dir
+                        print(f"Répertoire choisi: {output_dir}")
+                        break
+                    except Exception as e:
+                        print(f"Échec répertoire {test_dir}: {e}")
+                        continue
+                
+                if not output_dir:
+                    toast("Impossible de créer le répertoire d'export", background=[1,0,0,1])
+                    return {}
+            
+            # Nettoyer le nom de fichier
+            date_clean = self.DATE.replace('/', '_').replace(' ', '_').replace(':', '_')
+            filename_base = f"rapport_bcc_{date_clean}"
+            
+            # Titre du rapport
+            title = f"Rapport BCC - {self.DATE}"
+            
+            print(f"Lancement export vers: {output_dir}")
+            print(f"Nom de base: {filename_base}")
+            
+            # Lancer l'export Android
+            files_created = export_to_android(
+                data=data_export,
+                filename=filename_base,
+                formats=formats,
+                title=title,
+                headers=headers
+            )
+            
+            print(f"Résultat export: {files_created}")
+            
+            if files_created and not files_created.get('error'):
+                message = f"✓ Export réussi!\n{len(files_created)} fichier(s) créé(s)"
+                toast(message, duration=4)
+                
+                # Afficher les fichiers créés
+                for format_type, filepath in files_created.items():
+                    print(f"Créé: {format_type} -> {filepath}")
+                
+                return files_created
+            else:
+                error_msg = files_created.get('error', 'Erreur inconnue') if files_created else 'Aucun fichier créé'
+                print(f"ERREUR EXPORT: {error_msg}")
+                toast(f"Échec export: {error_msg}", background=[1,0,0,1], duration=4)
+                return {}
+            
         except Exception as e:
-            toast("Erreur lors de l'export", background=[1,0,0,1])
-            print(f"Erreur export: {e}")
+            print(f"EXCEPTION dans exporter_donnees_bcc_android: {e}")
+            print("TRACEBACK:")
+            traceback.print_exc()
+            toast(f"Erreur export: {str(e)}", background=[1,0,0,1], duration=4)
             return {}
+        
+        finally:
+            print("=== FIN EXPORT ANDROID ===")
     
     def redreser_les_donne(self, elmt):
         """Fonction corrigée pour formater les données d'export"""
@@ -1508,87 +1584,219 @@ class BCC(MDApp):
             ret.append(formatted_cell)
         return tuple(ret)
             
-    def exporter_toutes_donnees_bcc(self, formats=['pdf']):
+    def exporter_toutes_donnees_bcc_android(self, formats=['pdf'], output_dir=None):
         """
-        Exporter TOUTES les données BCC (toutes dates confondues)
-        
-        Args:
-            formats (list): Liste des formats d'export
-        
-        Returns:
-            dict: Dictionnaire des fichiers créés
+        Export complet optimisé pour Android
+        DÉBUT EXPORT_DATA
         """
         try:
+            print("=== DÉBUT EXPORT COMPLET ANDROID ===")
+            
             cur = self.con.cursor()
             cur.execute("SELECT * FROM BCC ORDER BY Date, Heur")
             toutes_donnees = cur.fetchall()
+            print(f"Données complètes récupérées: {len(toutes_donnees)} lignes")
             
-            if toutes_donnees:
-                # Préparer les données
-                data_export = [list(self.redreser_les_donne(row[1:])) for row in toutes_donnees]
-                headers = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
+            if not toutes_donnees:
+                toast("Aucune donnée dans la base")
+                return {}
+            
+            """# Limiter les données pour éviter les problèmes de mémoire sur Android
+            if len(toutes_donnees) > 100:
+                print(f"ATTENTION: {len(toutes_donnees)} lignes - Limitation à 100 pour Android")
+                toutes_donnees = toutes_donnees[:100]
+                toast(f"Export limité aux 100 premières entrées", duration=3)"""
+            
+            # Préparer les données
+            data_export = []
+            for row in toutes_donnees:
+                clean_row = []
+                for cell in row[1:]:  # Exclure l'ID
+                    cell_str = str(cell) if cell is not None else ""
+                    cell_clean = cell_str.replace('\n', ' ').replace('\r', '')[:50]
+                    clean_row.append(cell_clean)
+                data_export.append(clean_row)
+            
+            headers = ['Date', 'Heure', 'Opérateur', 'O/F/DD', 'Opération', 'Mention']
+            
+            # Import et test
+            try:
+                from Export import export_to_android, test_export_android
                 
-                # Créer l'exporteur
-                from Export import DataExporter
-                exporter = DataExporter(output_dir="exports_bcc")
-                
-                # Utiliser la date du jour pour le nom du fichier
-                from datetime import datetime
-                today = datetime.now().strftime("%Y%m%d")
-
-                files = exporter.export_data(
-                    data_export,
-                    f"rapport_bcc_complet_{today}",
-                    formats=formats,
-                    title="Rapport BCC - Historique Complet des Opérations",
-                    headers=headers
-                )
-                
-                if files:
-                    message = f"Export complet réussi ! {len(files)} fichier(s) - {len(toutes_donnees)} enregistrements"
-                    toast(message, duration=4)
-                    return files
-                else:
-                    toast("Erreur lors de l'export complet", background=[1,0,0,1])
+                if not test_export_android():
+                    toast("Modules d'export non disponibles", background=[1,0,0,1])
                     return {}
                     
+            except ImportError as e:
+                print(f"Import error: {e}")
+                toast("Module d'export manquant", background=[1,0,0,1])
+                return {}
+            
+            # Répertoire de sortie
+            if not output_dir:
+                output_dir = self.get_android_export_dir()
+            
+            # Nom de fichier avec timestamp
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M")
+            filename_base = f"rapport_bcc_complet_{timestamp}"
+            
+            # Lancer l'export
+            files_created = export_to_android(
+                data=data_export,
+                filename=filename_base,
+                formats=formats,
+                title="Rapport BCC - Historique Complet",
+                headers=headers
+            )
+            
+            if files_created and not files_created.get('error'):
+                message = f"Export complet réussi!\n{len(files_created)} fichier(s) - {len(data_export)} lignes"
+                toast(message, duration=4)
+                return files_created
             else:
-                toast("Aucune donnée dans la base")
+                error_msg = files_created.get('error', 'Erreur inconnue') if files_created else 'Aucun fichier créé'
+                toast(f"Échec export: {error_msg}", background=[1,0,0,1], duration=4)
                 return {}
                 
         except Exception as e:
-            toast("Erreur lors de l'export complet", background=[1,0,0,1])
-            print(f"Erreur: {e}")
+            print(f"Erreur export complet: {e}")
+            traceback.print_exc()
+            toast(f"Erreur: {str(e)}", background=[1,0,0,1])
             return {}
-
-    def choisir_formats_export(self, instance):
+    def get_android_export_dir(self):
         """
-        Ouvrir un menu pour choisir les formats d'export
+        Obtenir le meilleur répertoire d'export pour Android
         """
-        formats_disponibles = [
-            {"text": "PDF seulement", "formats": ["pdf"], "icon": "file-pdf-box"},
-            {"text": "Excel seulement", "formats": ["xlsx"], "icon": "file-excel-box"},
-            {"text": "Word seulement", "formats": ["docx"], "icon": "file-word-box"},
-            {"text": "PDF + Excel", "formats": ["pdf", "xlsx"], "icon": "file-multiple"},
-            {"text": "Tous les formats", "formats": ["pdf", "xlsx", "docx"], "icon": "file-export"},
-        ]
+        if platform == 'android':
+            possible_dirs = [
+                "/storage/emulated/0/Download/BCC_Exports",
+                "/storage/emulated/0/Documents/BCC_Exports",
+                "/sdcard/Download/BCC_Exports",
+                "BCC_Exports"
+            ]
+        else:
+            possible_dirs = ["BCC_Exports"]
         
-        menu_items = []
-        for option in formats_disponibles:
-            menu_items.append({
-                "text": option["text"],
-                "icon": option["icon"],
-                "on_release": lambda x=option["formats"]: self.lancer_export_avec_formats(x)
-            })
+        for test_dir in possible_dirs:
+            try:
+                os.makedirs(test_dir, exist_ok=True)
+                # Test d'écriture simple
+                test_file = os.path.join(test_dir, "test.txt")
+                with open(test_file, 'w') as f:
+                    f.write("test")
+                os.remove(test_file)
+                print(f"Répertoire validé: {test_dir}")
+                return test_dir
+            except:
+                continue
         
-        self.menu_export = MDDropdownMenu(
-            caller=instance,
-            items=menu_items,
-            width_mult=4,
-        )
+        # Fallback - répertoire courant
+        return "."
         
-        self.menu_export.open()
-
+    def choisir_formats_export_android(self, instance):
+        """
+        Version simplifiée du choix de formats pour Android
+        """
+        try:
+            # Menu simplifié avec seulement les options qui marchent sur Android
+            formats_disponibles = [
+                {"text": "PDF seulement", "formats": ["pdf"]},
+                {"text": "Excel seulement", "formats": ["xlsx"]},
+                {"text": "PDF + Excel", "formats": ["pdf", "xlsx"]},
+            ]
+            
+            menu_items = []
+            for option in formats_disponibles:
+                menu_items.append({
+                    "text": option["text"],
+                    "on_release": lambda x=option["formats"]: self.lancer_export_android_direct(x)
+                })
+            
+            self.menu_export = MDDropdownMenu(
+                caller=instance,
+                items=menu_items,
+                width_mult=4,
+            )
+            
+            self.menu_export.open()
+            
+        except Exception as e:
+            print(f"Erreur choisir_formats_export_android: {e}")
+            toast("Erreur menu export", background=[1,0,0,1])
+    
+    def lancer_export_android_direct(self, formats):
+        """
+        Lancement direct de l'export pour Android (sans trop de menus)
+        """
+        try:
+            self.menu_export.dismiss()
+            
+            # Demander seulement le type d'export
+            content_layout = MDBoxLayout(
+                orientation="vertical",
+                spacing="15dp",
+                size_hint_y=None,
+                height="120dp"
+            )
+            
+            btn_date_actuelle = MDRaisedButton(
+                text=f"Exporter le {self.DATE}",
+                size_hint_y=None,
+                height="45dp",
+                on_release=lambda x: self.confirmer_export_android(formats, False)
+            )
+            
+            btn_tout = MDRaisedButton(
+                text="Exporter tout l'historique",
+                size_hint_y=None,
+                height="45dp",
+                on_release=lambda x: self.confirmer_export_android(formats, True)
+            )
+            
+            content_layout.add_widget(btn_date_actuelle)
+            content_layout.add_widget(btn_tout)
+            
+            self.dialog_export = MDDialog(
+                title="Choisir les données à exporter",
+                type="custom",
+                content_cls=content_layout,
+                buttons=[
+                    MDFlatButton(
+                        text="ANNULER",
+                        on_release=self.annuler_export
+                    ),
+                ],
+            )
+            
+            self.dialog_export.open()
+            
+        except Exception as e:
+            print(f"Erreur lancer_export_android_direct: {e}")
+            toast("Erreur lancement export", background=[1,0,0,1])
+    
+    
+    def confirmer_export_android(self, formats, export_complet):
+        """
+        Confirmer et lancer l'export Android
+        """
+        try:
+            self.dialog_export.dismiss()
+            
+            print(f"Confirmation export - Formats: {formats}, Complet: {export_complet}")
+            
+            # Lancer directement l'export avec répertoire par défaut
+            if export_complet:
+                result = self.exporter_toutes_donnees_bcc_android(formats)
+            else:
+                result = self.exporter_donnees_bcc_android(formats)
+            
+            print(f"Résultat final: {result}")
+            
+        except Exception as e:
+            print(f"Erreur confirmer_export_android: {e}")
+            toast(f"Erreur confirmation: {str(e)}", background=[1,0,0,1])    
+    
     def lancer_export_avec_formats(self, formats):
         """
         Lancer l'export avec les formats choisis
@@ -1643,9 +1851,9 @@ class BCC(MDApp):
         self.dialog_export.dismiss()
         
         if export_complet:
-            self.exporter_toutes_donnees_bcc(formats)
+            self.exporter_toutes_donnees_bcc_android(formats)
         else:
-            self.exporter_donnees_bcc(formats)
+            self.exporter_donnees_bcc_android(formats)
 
     def annuler_export(self, instance):
         """
@@ -1653,28 +1861,34 @@ class BCC(MDApp):
         """
         self.dialog_export.dismiss()
 
-    # Modification de la fonction Faire_Icon_4 pour ajouter l'export
-    def Faire_Icon_4(self, instance, x):
+    # Modification de la fonction Faire_Icon_4_android pour ajouter l'export
+    def Faire_Icon_4_android(self, instance, x):
         """
-        Version modifiée avec option d'export
+        Version Android optimisée
         """
-        # Ajouter l'export dans la liste des options
         dic = {
             self.Liste[0]: self.Changer_language,
             self.Liste[1]: self.Help,
             self.Liste[2]: self.Changer_font1,
             self.Liste[3]: self.Changer_font2,
             self.Liste[4]: self.Changer_show_page4,
-            "Export": self.choisir_formats_export,  # Nouvelle option
+            "Export": self.choisir_formats_export_android,  # Version Android
         }
         
         func = dic.get(x)
         if func is not None:
-            func(instance)
+            try:
+                func(instance)
+            except Exception as e:
+                print(f"Erreur fonction {x}: {e}")
+                toast(f"Erreur: {x}", background=[1,0,0,1])
 
         # Fermer le menu et remettre l'icône
-        self.Operation3.dismiss()
-        self.INSTANCE.icon = "plus"
+        try:
+            self.Operation3.dismiss()
+            self.INSTANCE.icon = "plus"
+        except:
+            pass
 
     # Modification de Appui_Icon_page4 pour inclure l'export
     def Appui_Icon_page4(self, instance):
@@ -1689,7 +1903,7 @@ class BCC(MDApp):
             Add = {
                 "text": elmt1,
                 "icon": elmt2,
-                "on_release": lambda btn=instance, text=elmt1: self.Faire_Icon_4(btn, text)
+                "on_release": lambda btn=instance, text=elmt1: self.Faire_Icon_4_android(btn, text)
             }
             Items.append(Add)
 
@@ -1714,10 +1928,10 @@ class BCC(MDApp):
         # Vérifier si le bouton n'existe pas déjà
         if not hasattr(self, 'btn_export_ajouté'):
             btn_export = MDRaisedButton(
-                text="📊 Export",
+                text="Export",
                 pos_hint={"center_x": 0.15, "center_y": 0.05},
                 size_hint=(0.25, 0.06),
-                on_release=self.choisir_formats_export
+                on_release=self.choisir_formats_export_android
             )
             
             # Ajouter le bouton à la page (ajustez selon votre layout)
@@ -1939,7 +2153,7 @@ class BCC(MDApp):
             self.saisir_emplacement_personnalise(formats, export_complet)
         else:
             # Utiliser l'emplacement choisi
-            self.lancer_export_avec_emplacement(path, formats, export_complet)
+            self.lancer_export_avec_emplacement_android(path, formats, export_complet)
 
     def confirmer_path_personnalise(self, formats, export_complet):
         """
@@ -1949,7 +2163,7 @@ class BCC(MDApp):
         self.dialog_path.dismiss()
         
         if path:
-            self.lancer_export_avec_emplacement(path, formats, export_complet)
+            self.lancer_export_avec_emplacement_android(path, formats, export_complet)
         else:
             toast("Veuillez entrer un chemin valide", background=[1,0,0,1])
 
@@ -1965,22 +2179,24 @@ class BCC(MDApp):
         """
         self.dialog_path.dismiss()
 
-    def lancer_export_avec_emplacement(self, output_dir, formats, export_complet):
+    def lancer_export_avec_emplacement_android(self, output_dir, formats, export_complet):
         """
-        Lancer l'export avec l'emplacement spécifié
+        Version simplifiée pour Android
         """
         try:
-            # Créer le dossier s'il n'existe pas
-            from pathlib import Path
-            Path(output_dir).mkdir(parents=True, exist_ok=True)
+            print(f"Export Android - Dir: {output_dir}, Formats: {formats}, Complet: {export_complet}")
             
             if export_complet:
-                self.exporter_toutes_donnees_bcc_custom(formats, output_dir)
+                result = self.exporter_toutes_donnees_bcc_android(formats, output_dir)
             else:
-                self.exporter_donnees_bcc_custom(formats, output_dir)
-                
+                result = self.exporter_donnees_bcc_android(formats, output_dir)
+            
+            return result
+            
         except Exception as e:
-            toast(f"Erreur création dossier: {str(e)}", background=[1,0,0,1])
+            print(f"Erreur lancer_export_avec_emplacement_android: {e}")
+            toast(f"Erreur: {str(e)}", background=[1,0,0,1])
+            return {}
 
     def exporter_donnees_bcc_custom(self, formats=['pdf'], output_dir="exports_bcc"):
         """
@@ -2126,5 +2342,8 @@ class BCC(MDApp):
         
         self.dialog_export.open()
 #=========== Fin =====================
+#========== Les nouveaux fonctionnalitées ===============
+
+#===================== Fin ==============================
 
 BCC().run()
