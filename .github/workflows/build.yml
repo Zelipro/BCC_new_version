@@ -1,22 +1,17 @@
-name: Build APK avec Export Android
+name: Build
 on:
   push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
-
 jobs:
-  # Build job avec support export Android
+  # Build job. Builds app for Android with Buildozer
   build-android:
-    name: Build APK Android avec Export
+    name: Build for Android
     runs-on: ubuntu-latest
-    
     steps:
-      - name: Checkout du code
+      - name: Checkout
         uses: actions/checkout@v4
       
-      # Installation des dépendances système pour l'export
-      - name: Installation dépendances système
+      # Nouvelle étape : Installation des dépendances système nécessaires
+      - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y \
@@ -26,175 +21,17 @@ jobs:
             automake \
             autoconf \
             build-essential \
-            pkg-config \
-            python3-dev \
-            libffi-dev \
-            libssl-dev \
-            libxml2-dev \
-            libxslt-dev \
-            libjpeg-dev \
-            zlib1g-dev
+            pkg-config
       
-      # Test des modules Python requis pour l'export
-      - name: Test modules Python
-        run: |
-          python3 -c "
-          try:
-              import pandas
-              print('✓ Pandas disponible')
-          except ImportError as e:
-              print('✗ Pandas manquant:', e)
-          
-          try:
-              from fpdf import FPDF
-              print('✓ FPDF disponible')
-          except ImportError as e:
-              print('✗ FPDF manquant:', e)
-          
-          try:
-              import openpyxl
-              print('✓ OpenPyXL disponible')
-          except ImportError as e:
-              print('✗ OpenPyXL manquant:', e)
-          "
-      
-      # Vérification de la structure des fichiers
-      - name: Vérification fichiers
-        run: |
-          echo "=== Structure du projet ==="
-          ls -la
-          echo "=== Contenu Export.py ==="
-          if [ -f "Export.py" ]; then
-            head -20 Export.py
-            echo "Export.py trouvé"
-          else
-            echo "ATTENTION: Export.py manquant!"
-          fi
-          echo "=== Contenu main.py ==="
-          if [ -f "main.py" ]; then
-            echo "main.py trouvé"
-          else
-            echo "ATTENTION: main.py manquant!"
-          fi
-      
-      # Test de fonctionnement de l'export avant compilation
-      - name: Test export Python
-        run: |
-          python3 -c "
-          import sys
-          sys.path.append('.')
-          try:
-              from Export import test_export_android, export_to_android
-              print('=== Test modules export ===')
-              result = test_export_android()
-              print(f'Test modules: {result}')
-              
-              if result:
-                  print('=== Test export basique ===')
-                  test_data = [['20/09/2024', '14:30', 'Test', 'O', 'Operation', 'OK']]
-                  test_headers = ['Date', 'Heure', 'Op', 'Type', 'Action', 'Status']
-                  export_result = export_to_android(test_data, 'test_github', ['pdf'], 'Test', test_headers)
-                  print(f'Export result: {export_result}')
-              else:
-                  print('ATTENTION: Modules export non fonctionnels')
-          except Exception as e:
-              print(f'ERREUR test export: {e}')
-              import traceback
-              traceback.print_exc()
-          "
-      
-      # Build avec Buildozer
-      - name: Build APK avec Buildozer
+      - name: Build with Buildozer
         uses: Zelipro/buildozer-action@master
         id: buildozer
         with:
           workdir: .
           buildozer_version: stable
-        env:
-          # Variables d'environnement pour l'export
-          ANDROID_EXPORT_ENABLED: "true"
-          PYTHONPATH: ${{ github.workspace }}
       
-      # Vérification de l'APK créé
-      - name: Vérification APK
-        run: |
-          echo "=== Fichiers générés ==="
-          find . -name "*.apk" -type f -exec ls -lh {} \;
-          
-          APK_FILE="${{ steps.buildozer.outputs.filename }}"
-          if [ -f "$APK_FILE" ]; then
-            echo "✓ APK créé: $APK_FILE"
-            ls -lh "$APK_FILE"
-            
-            # Information sur l'APK
-            file "$APK_FILE"
-            
-            # Taille de l'APK
-            APK_SIZE=$(stat -c%s "$APK_FILE")
-            echo "Taille APK: $APK_SIZE bytes"
-            
-            if [ $APK_SIZE -gt 10000000 ]; then
-              echo "✓ APK semble correct (> 10MB)"
-            else
-              echo "⚠ APK peut-être trop petit"
-            fi
-          else
-            echo "✗ APK non trouvé!"
-            exit 1
-          fi
-      
-      # Upload de l'APK
-      - name: Upload APK
+      - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: BCC-Android-APK
+          name: package
           path: ${{ steps.buildozer.outputs.filename }}
-          retention-days: 90
-      
-      # Upload des logs pour debugging
-      - name: Upload logs de build
-        if: always()  # Même en cas d'échec
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs
-          path: |
-            .buildozer/
-            *.log
-          retention-days: 7
-
-  # Job de test post-build (optionnel)
-  test-apk:
-    name: Test APK Android
-    needs: build-android
-    runs-on: ubuntu-latest
-    if: success()
-    
-    steps:
-      - name: Download APK
-        uses: actions/download-artifact@v4
-        with:
-          name: BCC-Android-APK
-      
-      - name: Analyse APK
-        run: |
-          echo "=== Analyse de l'APK ==="
-          ls -la *.apk
-          
-          # Informations sur l'APK
-          for apk in *.apk; do
-            echo "Analyse de $apk:"
-            file "$apk"
-            
-            # Utiliser aapt si disponible
-            if command -v aapt >/dev/null 2>&1; then
-              echo "Permissions de l'APK:"
-              aapt dump permissions "$apk" | head -20
-              
-              echo "Informations du package:"
-              aapt dump badging "$apk" | head -10
-            else
-              echo "aapt non disponible - analyse limitée"
-            fi
-            
-            echo "---"
-          done
